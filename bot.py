@@ -8,55 +8,53 @@ from telegram.ext import (
     filters,
 )
 
-# BOT TOKEN Render Environment Variables se aayega
 TOKEN = os.getenv("BOT_TOKEN")
 
-if not TOKEN:
-    raise ValueError("BOT_TOKEN environment variable not found!")
-
-# Anti-link function
 async def anti_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
 
-    text = update.message.text
-    if not text:
+    # Admins ke messages delete nahi honge
+    try:
+        admins = await context.bot.get_chat_administrators(
+            update.effective_chat.id
+        )
+        admin_ids = [admin.user.id for admin in admins]
+
+        if update.effective_user.id in admin_ids:
+            return
+    except Exception as e:
+        print(f"Admin check error: {e}")
         return
 
-    # Group admins ki list
-    admins = await context.bot.get_chat_administrators(
-        update.effective_chat.id
-    )
-    admin_ids = [admin.user.id for admin in admins]
+    text = update.message.text or ""
 
-    # Admin aur owner ke messages delete nahi honge
-    if update.effective_user.id in admin_ids:
-        return
-
-    # Telegram links detect karo
-    pattern = r"(https?://|www\.|t\.me/|telegram\.me/)"
+    # Telegram links detect
+    pattern = r"(https?://|www\.|t\.me/)"
 
     if re.search(pattern, text.lower()):
         try:
             await update.message.delete()
-            print(f"Deleted message from user {update.effective_user.id}")
+            print(f"Deleted link from user {update.effective_user.id}")
         except Exception as e:
             print(f"Delete error: {e}")
 
 def main():
+    if not TOKEN:
+        print("ERROR: BOT_TOKEN not found!")
+        return
+
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
-            anti_link
+            anti_link,
         )
     )
 
     print("ParthTraderAlerts_Bot started...")
-    app.run_polling(
-        drop_pending_updates=True
-    )
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
